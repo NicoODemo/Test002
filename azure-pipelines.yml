@@ -1,7 +1,4 @@
-# ASP.NET Core (.NET Framework)
-# Build and test ASP.NET Core projects targeting the full .NET Framework.
-# Add steps that publish symbols, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
+name: $(majorversion).$(minorversion).$(Rev:r)
 
 trigger:
 - main
@@ -13,6 +10,8 @@ variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
+  majorversion: 2
+  minorversion: 1
 
 steps:
 - task: NuGetToolInstaller@1
@@ -30,5 +29,34 @@ steps:
 
 - task: VSTest@2
   inputs:
+    testSelector: 'testAssemblies'
+    testAssemblyVer2: |
+      **\*tests.unit.dll
+      !**\*TestAdapter.dll
+      !**\obj\**
+    searchFolder: '$(System.DefaultWorkingDirectory)'
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
+
+- task: codesigning@2
+  inputs:
+    secureFileId: 'codesigning.pfx'
+    signCertPassword: '$(CodeSigningPassword)'
+    files: '**/WinNet*.dll'
+    timeServer: 'http://timestamp.digicert.com'
+    hashingAlgorithm: 'SHA256'
+
+- task: GitHubRelease@1
+  inputs:
+    gitHubConnection: 'github.com_NicoODemo'
+    repositoryName: '$(Build.Repository.Name)'
+    action: 'create'
+    target: '$(Build.SourceVersion)'
+    tagSource: 'userSpecifiedTag'
+    tag: '$(Build.BuildNumber)'
+    title: 'Publish_from_AzD_Pipeline'
+    releaseNotesSource: 'inline'
+    releaseNotesInline: 'Test'
+    assets: '$(Build.SourcesDirectory)/*'
+    changeLogCompareToRelease: 'lastFullRelease'
+    changeLogType: 'commitBased'
